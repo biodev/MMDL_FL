@@ -33,7 +33,7 @@ else:
     device = torch.device("cpu")
 
 def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
-                batch_size = 64, num_workers = 4, lr = 0.001, momentum = 0.9, step_size=7, gamma=0.1):
+                batch_size = 64, num_workers = 0, lr = 0.001, momentum = 0.9, step_size=7, gamma=0.1):
 
     data_transforms = transforms.Compose([
         transforms.Resize(224),
@@ -55,7 +55,7 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
     # Decay LR by a factor of 0.1 every 7 epochs    
     scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma) 
 
-    best_model_wts = copy.deepcopy(model.state_dict())  
+    best_model_wts = copy.deepcopy(model_ft.state_dict())  
     best_acc = 0.0 
     
     steps = num_epochs * len(trainloader)
@@ -63,7 +63,7 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
 
-        model.train()  
+        model_ft.train()  
 
         running_loss = 0.0
         running_corrects = 0
@@ -82,7 +82,7 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
             with torch.set_grad_enabled(True):
                
                 X_train_minmax = torch.from_numpy(np.array([clin_features[:,clin_pts.index(i)] for i in names_], dtype=np.float32))
-                outputs_ = model(inputs_, X_train_minmax.to(device))
+                outputs_ = model_ft(inputs_, X_train_minmax.to(device))
 
                 _, preds = torch.max(outputs_, 1)
                 loss = criterion(outputs_, labels_)
@@ -102,17 +102,17 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
         scheduler.step()
         if epoch_acc > best_acc:
             best_acc = epoch_acc
-            best_model_wts = copy.deepcopy(model.state_dict())
+            best_model_wts = copy.deepcopy(model_ft.state_dict())
 
         print('{} Loss: {:.4f} Acc: {:.4f}'.format(
             'train', epoch_loss, epoch_acc))
 
     # load best model weights
-    model.load_state_dict(best_model_wts)
+    model_ft.load_state_dict(best_model_wts)
     
-    return model, best_acc, steps
+    return model_ft, best_acc, steps
 
-def test_model (model, test_file, clin_features, clin_pts, batch_size = 4, num_workers = 4):
+def test_model (model, test_file, clin_features, clin_pts, batch_size = 4, num_workers = 0):
 
     #test-specific transforms
     data_transforms = transforms.Compose([
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     since = time.time()
 
     #can tweak model here if needed
-    model = models.resnet18(pretrained=True)  
+    model = models.resnet18(weights='DEFAULT')  
     model = Cnn_With_Clinical_Net(model) 
 
     model_trn, train_acc, steps = train_model(model, args.train_file, clin_features, clin_pts)
