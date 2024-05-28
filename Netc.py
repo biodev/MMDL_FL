@@ -1,14 +1,11 @@
 import torch
 import torch.nn as nn
-from compact_bilinear_pooling import CountSketch, CompactBilinearPooling
+from compact_bilinear_pooling import CompactBilinearPooling
 
 
 class Cnn_With_Clinical_Net(nn.Module):
     def __init__(self, model):
         super(Cnn_With_Clinical_Net, self).__init__()
-        # self.layer = nn.Sequential(*list(model.children())[:-1])
-        # self.feature = list(model.children())[-1].in_features
-        # self.cnn = nn.Linear(self.feature, 128)
         
         # CNN
         self.layer = nn.Sequential(*list(model.children()))
@@ -21,14 +18,10 @@ class Cnn_With_Clinical_Net(nn.Module):
             self.feature = self.layer[-1].in_features
         self.linear = nn.Linear(self.feature, 128)  
 
-        
         # clinical feature
         self.clinical = nn.Linear(35, 35) 
 
-        # concat
-        #aself.mcb = CompactBilinearPooling(128, 35, 128).cuda()
         self.mcb = CompactBilinearPooling(128, 35, 128)
-        # self.concat = nn.Linear(128+55, 128)
         self.bn = nn.BatchNorm1d(128)
         self.relu = nn.ReLU(True)
         self.classifier = nn.Linear(128, 35)  
@@ -41,8 +34,6 @@ class Cnn_With_Clinical_Net(nn.Module):
         x = self.linear(x)
         clinical = self.clinical(clinical_features)
         x = self.mcb(x, clinical)
-        # x = torch.cat([x, clinical], dim=1)
-        # x = self.concat(x)
         x = self.bn(x)
         x = self.relu(x)
         x = self.classifier(x)
