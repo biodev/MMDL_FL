@@ -32,8 +32,10 @@ elif torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
+print("Using: "+str(device))
+
 def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
-                batch_size = 64, num_workers = 0, lr = 0.001, momentum = 0.9, step_size=7, gamma=0.1):
+                batch_size = 64, num_workers = 1, lr = 0.001, momentum = 0.9, step_size=7, gamma=0.1):
 
     data_transforms = transforms.Compose([
         transforms.Resize(224),
@@ -112,7 +114,7 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
     
     return model_ft, best_acc, steps
 
-def test_model (model, test_file, clin_features, clin_pts, batch_size = 4, num_workers = 0):
+def test_model (model, test_file, clin_features, clin_pts, batch_size = 4, num_workers = 1):
 
     #test-specific transforms
     data_transforms = transforms.Compose([
@@ -217,15 +219,18 @@ if __name__ == "__main__":
 
     torch.save(model_trn, args.out_dir+f'/model_fit_{trn_basename}.pkl' )
 
+    print('Starting testing...')
+
     test_acc, y_true, y_pred, preid_list, score_list = test_model (model_trn, args.test_file, clin_features, clin_pts)
 
     test_basename = os.path.basename(args.test_file)
 
-    np.save(args.out_dir+f'/y_true_{k}.npy', np.array(y_true)) 
+    np.save(args.out_dir+f'/y_true_{test_basename}.npy', np.array(y_true)) 
     np.save(args.out_dir+f'/preid_{test_basename}.npy', np.array(preid_list))
     np.save(args.out_dir+f'/score_{test_basename}.npy', np.array(score_list))
     np.save(args.out_dir+f'/y_pred_{test_basename}.npy', np.array(y_pred))
     
+    print('Testing complete...')
     print ('Accuracy of the network on test images: %d %%' % (
         100 * test_acc))
 
