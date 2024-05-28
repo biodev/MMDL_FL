@@ -32,12 +32,8 @@ elif torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
-def train_model(train_file, clin_features, clin_pts, num_epochs=10,
+def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
                 batch_size = 64, num_workers = 4, lr = 0.001, momentum = 0.9, step_size=7, gamma=0.1):
-
-    #can tweak model here if needed
-    model = models.resnet18(pretrained=True)  
-    model = Cnn_With_Clinical_Net(model) 
 
     data_transforms = transforms.Compose([
         transforms.Resize(224),
@@ -62,6 +58,8 @@ def train_model(train_file, clin_features, clin_pts, num_epochs=10,
     best_model_wts = copy.deepcopy(model.state_dict())  
     best_acc = 0.0 
     
+    steps = num_epochs * len(trainloader)
+
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
 
@@ -112,7 +110,7 @@ def train_model(train_file, clin_features, clin_pts, num_epochs=10,
     # load best model weights
     model.load_state_dict(best_model_wts)
     
-    return model, best_acc
+    return model, best_acc, steps
 
 def test_model (model, test_file, clin_features, clin_pts, batch_size = 4, num_workers = 4):
 
@@ -179,6 +177,16 @@ def test_model (model, test_file, clin_features, clin_pts, batch_size = 4, num_w
 
     return test_acc, y_true, y_pred, preid_list, score_list
 
+def preprocess_clinical (clinical_file):
+    #note this is computing the min-max transform over all the data
+    clin_dt=pd.read_csv(clinical_file)  
+    clin_pts=[i for i in clin_dt.TCGA_ID]
+    raw_clin_features=[clin_dt[i] for i in clin_dt.columns[1:]]      
+    min_max_scaler = preprocessing.MinMaxScaler()  
+    clin_features = min_max_scaler.fit_transform(raw_clin_features)
+
+    return clin_features, clin_pts
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -190,16 +198,15 @@ if __name__ == "__main__":
 
     Path(args.out_dir).mkdir(parents=True, exist_ok=True)
 
-    #note this is computing the min-max transform over all the data
-    clin_dt=pd.read_csv(args.clinical_file)  
-    clin_pts=[i for i in clin_dt.TCGA_ID]
-    raw_clin_features=[clin_dt[i] for i in clin_dt.columns[1:]]      
-    min_max_scaler = preprocessing.MinMaxScaler()  
-    clin_features = min_max_scaler.fit_transform(raw_clin_features)
+    clin_features, clin_pts = preprocess_clinical(args.clinical_file)
 
     since = time.time()
 
-    model_trn, train_acc = train_model(args.train_file, clin_features, clin_pts)
+    #can tweak model here if needed
+    model = models.resnet18(pretrained=True)  
+    model = Cnn_With_Clinical_Net(model) 
+
+    model_trn, train_acc, steps = train_model(model, args.train_file, clin_features, clin_pts)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}h {:.0f}m'.format(
