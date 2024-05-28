@@ -4,7 +4,7 @@ from compact_bilinear_pooling import CompactBilinearPooling
 
 
 class Cnn_With_Clinical_Net(nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, n_clin_features):
         super(Cnn_With_Clinical_Net, self).__init__()
         
         # CNN
@@ -19,12 +19,12 @@ class Cnn_With_Clinical_Net(nn.Module):
         self.linear = nn.Linear(self.feature, 128)  
 
         # clinical feature
-        self.clinical = nn.Linear(35, 35) 
+        self.clinical = nn.Linear(n_clin_features, n_clin_features) 
 
-        self.mcb = CompactBilinearPooling(128, 35, 128)
+        self.mcb = CompactBilinearPooling(128, n_clin_features, 128)
         self.bn = nn.BatchNorm1d(128)
         self.relu = nn.ReLU(True)
-        self.classifier = nn.Linear(128, 35)  
+        self.classifier = nn.Linear(128, n_clin_features)  
 
     def forward(self, x, clinical_features):
         x = self.conv(x)

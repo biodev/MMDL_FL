@@ -204,7 +204,7 @@ if __name__ == "__main__":
 
     #can tweak model here if needed
     model = models.resnet18(weights='DEFAULT')  
-    model = Cnn_With_Clinical_Net(model) 
+    model = Cnn_With_Clinical_Net(model, clin_features.shape[0]) 
 
     model_trn, train_acc, steps = train_model(model, args.train_file, clin_features, clin_pts)
 
