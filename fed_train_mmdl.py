@@ -30,11 +30,8 @@ from nvflare.app_common.app_constant import ModelName
 
 from train_mmdl import train_model, test_model, preprocess_clinical
 
-#for testing purposes on mac Mx laptop
-if torch.backends.mps.is_available():
-    device = torch.device("mps")
-elif torch.cuda.is_available():
-    device = torch.device("cuda:0")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
 else:
     device = torch.device("cpu")
 
@@ -46,6 +43,7 @@ if __name__ == "__main__":
     parser.add_argument("--train_file", type=str, default="data/train_0.csv")
     parser.add_argument("--test_file", type=str, default="data/test_0.csv")
     parser.add_argument("--out_dir", type=str, default="output")
+    parser.add_argument("--n_epochs", type=int, default="10")
     args = parser.parse_args()
 
     Path(args.out_dir).mkdir(parents=True, exist_ok=True)
@@ -55,9 +53,8 @@ if __name__ == "__main__":
     best_accuracy = 0.0
 
     clin_features, clin_pts = preprocess_clinical(args.clinical_file)
-
-    net = models.resnet18(pretrained=True)  
-    net = Cnn_With_Clinical_Net(net, clin_features.shape[0]) 
+ 
+    net = Cnn_With_Clinical_Net(clin_features.shape[0]) 
 
     # (2) initialize NVFlare client API
     flare.init()
@@ -85,7 +82,7 @@ if __name__ == "__main__":
 
             #training code
 
-            model_trn, train_acc, steps = train_model(net, args.train_file, clin_features, clin_pts)
+            model_trn, train_acc, steps = train_model(net, args.train_file, clin_features, clin_pts, num_epochs=args.n_epochs)
 
             print(f"({client_id}) Finished Training")
 
@@ -100,7 +97,9 @@ if __name__ == "__main__":
 
             # (5.3) evaluate on received model for model selection
 
-            accuracy, *_ = test_model(input_model, args.test_file, clin_features, clin_pts)
+            net.load_state_dict(input_model.params)
+
+            accuracy, *_ = test_model(net, args.test_file, clin_features, clin_pts)
 
             print(
                 f"({client_id}) Evaluating received model for model selection: {accuracy}"
@@ -108,7 +107,7 @@ if __name__ == "__main__":
 
             # (5.4) construct trained FL model
             output_model = flare.FLModel(
-                params=net.cpu().state_dict(),
+                params=model_trn.cpu().state_dict(),
                 metrics={"accuracy": accuracy},
                 meta={"NUM_STEPS_CURRENT_ROUND": steps},
             )
@@ -118,7 +117,8 @@ if __name__ == "__main__":
         
         # (6) performing evaluate task on received model
         elif flare.is_evaluate():
-            accuracy, *_ = test_model(input_model, args.test_file, clin_features, clin_pts)
+            net.load_state_dict(input_model.params)
+            accuracy, *_ = test_model(net, args.test_file, clin_features, clin_pts)
             flare.send(flare.FLModel(metrics={"accuracy": accuracy}))
 
         # (7) performing submit_model task to obtain best local model
@@ -127,9 +127,6 @@ if __name__ == "__main__":
             if model_name == ModelName.BEST_MODEL:
                 try:
                     weights = torch.load(args.out_dir+f'/model_fit_{trn_basename}.pt')
-                    
-                    net = models.resnet18(pretrained=True)  
-                    net = Cnn_With_Clinical_Net(net)
                     net.load_state_dict(weights)
                     flare.send(flare.FLModel(params=net.cpu().state_dict()))
                 except Exception as e:

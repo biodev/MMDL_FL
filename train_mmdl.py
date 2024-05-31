@@ -24,15 +24,10 @@ import pandas as pd
 import numpy as np
 from sklearn import preprocessing
 
-#for testing purposes on mac Mx laptop
-if torch.backends.mps.is_available():
-    device = torch.device("mps")
-elif torch.cuda.is_available():
-    device = torch.device("cuda:0")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
 else:
     device = torch.device("cpu")
-
-print("Using: "+str(device))
 
 def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
                 batch_size = 64, num_workers = 1, lr = 0.001, momentum = 0.9, step_size=7, gamma=0.1):
@@ -196,6 +191,7 @@ if __name__ == "__main__":
     parser.add_argument("--train_file", type=str, default="data/train_0.csv")
     parser.add_argument("--test_file", type=str, default="data/test_0.csv")
     parser.add_argument("--out_dir", type=str, default="output")
+    parser.add_argument("--n_epochs", type=int, default="10")
     args = parser.parse_args()
 
     Path(args.out_dir).mkdir(parents=True, exist_ok=True)
@@ -204,11 +200,10 @@ if __name__ == "__main__":
 
     since = time.time()
 
-    #can tweak model here if needed
-    model = models.resnet18(weights='DEFAULT')  
-    model = Cnn_With_Clinical_Net(model, clin_features.shape[0]) 
+    #can tweak model here if needed 
+    model = Cnn_With_Clinical_Net(clin_features.shape[0]) 
 
-    model_trn, train_acc, steps = train_model(model, args.train_file, clin_features, clin_pts)
+    model_trn, train_acc, steps = train_model(model, args.train_file, clin_features, clin_pts, num_epochs=args.n_epochs)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}h {:.0f}m'.format(

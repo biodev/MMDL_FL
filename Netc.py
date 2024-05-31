@@ -1,12 +1,17 @@
 import torch
 import torch.nn as nn
+
+from torchvision import models
+
 from compact_bilinear_pooling import CompactBilinearPooling
 
 
 class Cnn_With_Clinical_Net(nn.Module):
-    def __init__(self, model, n_clin_features):
+    def __init__(self, n_clin_features):
         super(Cnn_With_Clinical_Net, self).__init__()
         
+        model = models.resnet18(weights='DEFAULT') 
+
         # CNN
         self.layer = nn.Sequential(*list(model.children()))
         self.conv = self.layer[:-1]
