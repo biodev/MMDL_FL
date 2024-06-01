@@ -44,8 +44,10 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
         batch_size=batch_size, shuffle=True, num_workers=num_workers
     )
 
-    model_ft = model.to(device)  
-    
+    model_ft = model.to(device)
+
+    model_ft.train()
+ 
     criterion = nn.CrossEntropyLoss()  
     # Observe that all parameters are being optimized
     optimizer = optim.SGD(model_ft.parameters(), lr=lr, momentum=momentum)  
@@ -58,9 +60,7 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
     steps = num_epochs * len(trainloader)
 
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-
-        model_ft.train()  
+        print('Epoch {}/{}'.format(epoch, num_epochs - 1))  
 
         running_loss = 0.0
         running_corrects = 0
@@ -109,7 +109,7 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
     
     return model_ft, best_acc, steps
 
-def test_model (model, test_file, clin_features, clin_pts, batch_size = 4, num_workers = 1):
+def test_model (model, test_file, clin_features, clin_pts, batch_size = 64, num_workers = 1):
 
     #test-specific transforms
     data_transforms = transforms.Compose([
@@ -118,7 +118,9 @@ def test_model (model, test_file, clin_features, clin_pts, batch_size = 4, num_w
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
-    
+   
+    model.eval()
+ 
     testset = CustomDset(test_file, data_transforms)  
     testloader = torch.utils.data.DataLoader(testset, batch_size = batch_size,
                                              shuffle = False, num_workers = num_workers)
