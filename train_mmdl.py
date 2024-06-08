@@ -151,8 +151,8 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
         epoch_acc_sample, *_ = tabulate_probs(person_prob_dict)
 
         scheduler.step()
-        if epoch_acc_sample > best_acc:
-            best_acc = epoch_acc_sample
+        if epoch_acc > best_acc:
+            best_acc = epoch_acc
             best_model_wts = copy.deepcopy(model_ft.state_dict())
 
         print('{} Loss: {:.4f} Per Image Acc: {:.4f} Per Sample Acc: {:.4f}'.format(
