@@ -29,6 +29,53 @@ if torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
+def process_probs (model_output, names, labels, p_dict):
+    probability = F.softmax(model_output, dim=1).data.squeeze()    
+    probs = probability.cpu().numpy()
+    for i in range(labels.size(0)):
+        p = names[i]
+        if p not in p_dict.keys():
+            p_dict[p] = {
+                'prob_0': 0, 
+                'prob_1': 0,
+                'label': labels[i].item(),      
+                'img_num': 0}
+        if probs.ndim == 2:
+            p_dict[p]['prob_0'] += probs[i, 0]
+            p_dict[p]['prob_1'] += probs[i, 1]
+            p_dict[p]['img_num'] += 1
+        else:
+            p_dict[p]['prob_0'] += probs[0]
+            p_dict[p]['prob_1'] += probs[1]
+            p_dict[p]['img_num'] += 1
+
+def tabulate_probs (p_dict):
+    y_true = []
+    y_pred = []
+    score_list = []
+    preid_list = []
+
+    total = len(p_dict)
+    correct = 0
+    for key in p_dict.keys():
+        preid_list.append(key)
+        predict = 0
+        if p_dict[key]['prob_0'] < p_dict[key]['prob_1']:
+            predict = 1
+        if p_dict[key]['label'] == predict:
+            correct += 1
+        y_true.append(p_dict[key]['label'])
+        score_list.append([p_dict[key]['prob_0']/p_dict[key]["img_num"],p_dict[key]['prob_1']/p_dict[key]["img_num"]])
+        y_pred.append(predict)
+        
+    score_list = pd.DataFrame(score_list)
+    preid_list = pd.DataFrame(preid_list)
+    
+    test_acc = correct / total
+
+    return test_acc, y_true, y_pred, preid_list, score_list
+
+
 def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
                 batch_size = 64, num_workers = 1, lr = 0.001, momentum = 0.9, step_size=7, gamma=0.1):
 
@@ -66,6 +113,8 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
         running_corrects = 0
         total = 0
 
+        person_prob_dict = dict()
+
         # Iterate over data
         for inputs_, labels_, names_, _ in trainloader:
             inputs_ = inputs_.to(device)
@@ -81,6 +130,8 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
                 X_train_minmax = torch.from_numpy(np.array([clin_features[:,clin_pts.index(i)] for i in names_], dtype=np.float32))
                 outputs_ = model_ft(inputs_, X_train_minmax.to(device))
 
+                process_probs(outputs_, names_, labels_, person_prob_dict)
+
                 _, preds = torch.max(outputs_, 1)
                 loss = criterion(outputs_, labels_)
 
@@ -91,18 +142,21 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
             # statistics
             running_loss += loss.item() * inputs_.size(0)
             running_corrects += torch.sum((preds == labels_.data).int())
-            total += 1
+            
+            total += preds.size(0)
 
         epoch_loss = running_loss / total
         epoch_acc = running_corrects / total
+
+        epoch_acc_sample, *_ = tabulate_probs(person_prob_dict)
 
         scheduler.step()
         if epoch_acc > best_acc:
             best_acc = epoch_acc
             best_model_wts = copy.deepcopy(model_ft.state_dict())
 
-        print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-            'train', epoch_loss, epoch_acc))
+        print('{} Loss: {:.4f} Per Image Acc: {:.4f} Per Sample Acc: {:.4f}'.format(
+            'train', epoch_loss, epoch_acc, epoch_acc_sample))
 
     # load best model weights
     model_ft.load_state_dict(best_model_wts)
@@ -131,50 +185,13 @@ def test_model (model, test_file, clin_features, clin_pts, batch_size = 64, num_
             images, labels, names_, images_names = data
             X_test_minmax = [clin_features[:,clin_pts.index(i)] for i in names_]
             outputs = model(images.to(device), torch.from_numpy(np.array(X_test_minmax, dtype=np.float32)).to(device))
+            process_probs(outputs, names_, labels, person_prob_dict)
             
-            probability = F.softmax(outputs, dim=1).data.squeeze()    
-            probs = probability.cpu().numpy()
-            for i in range(labels.size(0)):
-                p = names_[i]
-                if p not in person_prob_dict.keys():
-                    person_prob_dict[p] = {
-                        'prob_0': 0, 
-                        'prob_1': 0,
-                        'label': labels[i].item(),      
-                        'img_num': 0}
-                if probs.ndim == 2:
-                    person_prob_dict[p]['prob_0'] += probs[i, 0]
-                    person_prob_dict[p]['prob_1'] += probs[i, 1]
-                    person_prob_dict[p]['img_num'] += 1
-                else:
-                    person_prob_dict[p]['prob_0'] += probs[0]
-                    person_prob_dict[p]['prob_1'] += probs[1]
-                    person_prob_dict[p]['img_num'] += 1
-    
-    y_true = []
-    y_pred = []
-    score_list = []
-    preid_list = []
-
-    total = len(person_prob_dict)
-    correct = 0
-    for key in person_prob_dict.keys():
-        preid_list.append(key)
-        predict = 0
-        if person_prob_dict[key]['prob_0'] < person_prob_dict[key]['prob_1']:
-            predict = 1
-        if person_prob_dict[key]['label'] == predict:
-            correct += 1
-        y_true.append(person_prob_dict[key]['label'])
-        score_list.append([person_prob_dict[key]['prob_0']/person_prob_dict[key]["img_num"],person_prob_dict[key]['prob_1']/person_prob_dict[key]["img_num"]])
-        y_pred.append(predict)
-        
-    score_list = pd.DataFrame(score_list)
-    preid_list = pd.DataFrame(preid_list)
-    
-    test_acc = correct / total
+    test_acc, y_true, y_pred, preid_list, score_list = tabulate_probs(person_prob_dict)
 
     return test_acc, y_true, y_pred, preid_list, score_list
+
+    
 
 def preprocess_clinical (clinical_file):
     #note this is computing the min-max transform over all the data
