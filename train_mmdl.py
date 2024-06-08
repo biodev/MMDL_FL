@@ -142,7 +142,7 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
             # statistics
             running_loss += loss.item() * inputs_.size(0)
             running_corrects += torch.sum((preds == labels_.data).int())
-            print(preds.size(0))
+            
             total += preds.size(0)
 
         epoch_loss = running_loss / total
