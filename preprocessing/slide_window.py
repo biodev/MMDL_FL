@@ -1,6 +1,6 @@
 from preprocessing.judge_position import judge_position
 from preprocessing.get_area_ratio import get_area_ratio
-from tiatoolbox.dataloader import wsireader
+from tiatoolbox.wsicore import wsireader
 from tiatoolbox.utils import misc
 from utils.common import logger
 
@@ -37,7 +37,7 @@ def slide_window(image, image_address, x_begin: int, y_begin: int, w: int, h: in
     x_end = x_begin+w-window_size
     y_end = y_begin+h-window_size
 
-    wsi = wsireader.OpenSlideWSIReader(input_path=svs_address)
+    wsi = wsireader.OpenSlideWSIReader(input_img=svs_address)
 
     for x in range(x_begin, x_end, stride):
         for y in range(y_begin, y_end, stride):
@@ -63,7 +63,7 @@ def slide_window(image, image_address, x_begin: int, y_begin: int, w: int, h: in
                 if ratio < area_ratio_thre:
                     logger.info("get the {0}th cancer picture".format(i_name))
                     # img_resion.append(ret)
-                    target_area_img = wsi.read_region(x, y, x+window_size, y+window_size)
+                    target_area_img = wsi.read_region((x, y), 0, (window_size, window_size))
                     misc.imwrite(image_address+"_"+str(luncancer)+"_"+str(i_name)+".orig.png", target_area_img)
 
 

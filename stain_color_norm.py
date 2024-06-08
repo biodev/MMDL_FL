@@ -8,7 +8,7 @@ import os
 
 # from utils.process import Process
 from tiatoolbox import utils
-import tiatoolbox.tools.stainnorm as sn
+from tiatoolbox.tools.stainnorm import get_normalizer
 from tiatoolbox.utils.exceptions import MethodNotSupported
 
 
@@ -29,7 +29,7 @@ def stainnorm(source_input, target_input, method, stain_matrix, output_dir, file
     if method not in ["reinhard", "custom", "ruifork", "macenko", "vahadane"]:
         raise MethodNotSupported
 
-    norm = sn.get_normaliser(method, stain_matrix)
+    norm = get_normalizer(method, stain_matrix)
     
     norm.fit(utils.misc.imread(target_input))
 
