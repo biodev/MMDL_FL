@@ -1,6 +1,9 @@
 import argparse
 from pathlib import Path
+
 from train_mmdl import preprocess_clinical, test_model
+from Netc import Cnn_With_Clinical_Net
+
 import torch
 import numpy as np
 
@@ -25,7 +28,14 @@ if __name__ == "__main__":
 
     print('Loading model...')
 
-    model_trn = torch.load(args.trained_model_file)
+    model_weights = torch.load(args.trained_model_file)
+
+    if isinstance(model_weights, Cnn_With_Clinical_Net):
+        model_trn = model_weights
+    else:
+        #nvflare returns state_dict instead, keyed as 'model'
+        model_trn = Cnn_With_Clinical_Net(clin_features.shape[0])
+        model_trn.load_state_dict(model_weights['model'])
 
     print('Starting testing...')
 
