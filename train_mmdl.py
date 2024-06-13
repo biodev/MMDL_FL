@@ -76,7 +76,7 @@ def tabulate_probs (p_dict):
     return test_acc, y_true, y_pred, preid_list, score_list
 
 
-def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
+def train_model(model_ft, train_file, clin_features, clin_pts, num_epochs=10,
                 batch_size = 64, num_workers = 1, lr = 0.001, momentum = 0.9, step_size=7, gamma=0.1):
 
     data_transforms = transforms.Compose([
@@ -91,7 +91,7 @@ def train_model(model, train_file, clin_features, clin_pts, num_epochs=10,
         batch_size=batch_size, shuffle=True, num_workers=num_workers
     )
 
-    model_ft = model.to(device)
+    model_ft.to(device)
 
     model_ft.train()
  
@@ -173,6 +173,7 @@ def test_model (model, test_file, clin_features, clin_pts, batch_size = 64, num_
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
    
+    model.to(device)
     model.eval()
  
     testset = CustomDset(test_file, data_transforms)  
